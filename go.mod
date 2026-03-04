@@ -2,7 +2,10 @@ module github.com/javiorfo/osubs
 
 go 1.26.0
 
-require github.com/gocolly/colly/v2 v2.3.0
+require (
+	github.com/gocolly/colly/v2 v2.3.0
+	github.com/javiorfo/nilo v1.6.0
+)
 
 require (
 	github.com/PuerkitoBio/goquery v1.11.0 // indirect
