@@ -4,32 +4,34 @@ import "github.com/javiorfo/nilo"
 
 type Subtitle struct {
 	// Unique identifier for the subtitle.
-	id int
+	ID int
 	// Movie title associated with the subtitle.
-	movie string
+	Movie string
 	// Optional name or description of the subtitle.
-	name nilo.Option[string]
+	Name nilo.Option[string]
 	// Language code of the subtitle (e.g., "eng" for English).
-	language string
+	Language string
 	// CD or disc information (e.g., "CD1", "CD2").
-	cd string
+	Cd string
 	// Upload date or timestamp.
-	uploaded string
+	Uploaded string
 	// Number of times the subtitle has been downloaded.
-	downloads int
+	Downloads int
+	// Format of subtitle file (e.g., "srt", "sub", "txt").
+	Format string
 	// User rating for the subtitle.
-	rating float32
+	Rating float32
 	// Optional uploader's username.
-	uploader nilo.Option[string]
+	Uploader nilo.Option[string]
 	// Direct download link for the subtitle file.
-	downloadLink string
+	DownloadLink string
 }
 
 type Movie struct {
 	/// Unique identifier for the movie.
-	id int
+	ID int
 	/// Movie title.
-	name string
+	Name string
 	/// URL to search for subtitles for this movie.
-	subtitlesLink string
+	SubtitlesLink string
 }

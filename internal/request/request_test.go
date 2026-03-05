@@ -14,7 +14,7 @@ func TestSearch(t *testing.T) {
 
 	switch v := resp.(type) {
 	case model.SubtitleResponse:
-		t.Log(v.Page)
+		t.Log(v)
 	default:
 		t.Fatalf("must be SubtitleResponse %v", v)
 	}

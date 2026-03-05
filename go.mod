@@ -4,7 +4,8 @@ go 1.26.0
 
 require (
 	github.com/gocolly/colly/v2 v2.3.0
-	github.com/javiorfo/nilo v1.6.0
+	github.com/javiorfo/nilo v1.6.1
+	github.com/javiorfo/steams/v2 v2.0.0
 )
 
 require (

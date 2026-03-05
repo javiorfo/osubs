@@ -4,27 +4,11 @@ import "github.com/javiorfo/nilo"
 
 type Page struct {
 	// The starting index of the current page.
-	from int
+	From int
 	// The ending index of the current page.
-	to int
-	// The total number of items available.
-	total int
-}
-
-func NewPage(from, to, total int) Page {
-	return Page{from, to, total}
-}
-
-func (p Page) From() int {
-	return p.from
-}
-
-func (p Page) To() int {
-	return p.to
-}
-
-func (p Page) Total() int {
-	return p.total
+	To int
+	// The Total number of items available.
+	Total int
 }
 
 type Response interface {
