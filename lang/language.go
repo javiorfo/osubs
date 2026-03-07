@@ -8,7 +8,7 @@ type Language interface {
 	isLanguage()
 }
 
-type Lang int
+type Lang uint
 
 const (
 	Abkhazian Lang = iota

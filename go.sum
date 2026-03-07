@@ -29,10 +29,10 @@ github.com/google/go-cmp v0.5.5/go.mod h1:v8dTdLbMG2kIc/vJvl+f65V22dbkXbowE6jgT/
 github.com/google/go-cmp v0.6.0/go.mod h1:17dUlkBOakJ0+DkrSSNjCkIjxS6bF9zb3elmeNGIjoY=
 github.com/google/go-cmp v0.7.0 h1:wk8382ETsv4JYUZwIsn6YpYiWiBsYLSJiTsyBybVuN8=
 github.com/google/go-cmp v0.7.0/go.mod h1:pXiqmnSA92OHEEa9HXL2W4E7lf9JzCmGVUdgjX3N/iU=
-github.com/javiorfo/nilo v1.6.1 h1:2XcTUk3Dqj7q0c0ZBTQij4abejpPM2m5JYrRxkjTVoI=
-github.com/javiorfo/nilo v1.6.1/go.mod h1:cJBBOCqyc+87XmxDyJrenoIfhUkjsb07RRyNZOMJe90=
-github.com/javiorfo/steams/v2 v2.0.0 h1:ysifnPfGX1JTe0Xj4qVZP3GNe/PBYD7RyVewwoytdt4=
-github.com/javiorfo/steams/v2 v2.0.0/go.mod h1:J0mQycMP45vZoG9+b8/HC+J3pGsgyTik+pyPgHq7akc=
+github.com/javiorfo/nilo v1.6.2 h1:u9Jseyh2EXkDHYywM9Tp0iQRRpWd0rnw3d5pjVi63OY=
+github.com/javiorfo/nilo v1.6.2/go.mod h1:cJBBOCqyc+87XmxDyJrenoIfhUkjsb07RRyNZOMJe90=
+github.com/javiorfo/steams/v2 v2.0.2 h1:QEn3s13IctI9rtpdHo8F7t9TFRoWWsokmfYAPstMWlw=
+github.com/javiorfo/steams/v2 v2.0.2/go.mod h1:g8Inu3VlyRskYv2DlILG6hks9+77889ArfoSv6Qw3gw=
 github.com/kennygrant/sanitize v1.2.4 h1:gN25/otpP5vAsO2djbMhF/LQX6R7+O1TB4yv8NzpJ3o=
 github.com/kennygrant/sanitize v1.2.4/go.mod h1:LGsjYYtgxbetdg5owWB2mpgUL6e2nfw2eObZ0u0qvak=
 github.com/nlnwa/whatwg-url v0.6.2 h1:jU61lU2ig4LANydbEJmA2nPrtCGiKdtgT0rmMd2VZ/Q=

@@ -1,4 +1,4 @@
-package request
+package osubs
 
 import (
 	"errors"
@@ -10,18 +10,59 @@ import (
 	"github.com/gocolly/colly/v2"
 	"github.com/gocolly/colly/v2/extensions"
 	"github.com/javiorfo/nilo"
-	"github.com/javiorfo/osubs/model"
+	"github.com/javiorfo/osubs/lang"
+	"github.com/javiorfo/osubs/order"
 	"github.com/javiorfo/steams/v2"
 )
 
-func Search() (resp model.Response, searchErr error) {
+func Search(movieName string, filters ...filterOpts) (response, error) {
+	if movieName == "" {
+		return nil, errors.New("movie name must not be empty")
+	}
+
+	f := &filter{}
+	for _, opt := range filters {
+		opt(f)
+	}
+
+	return search(fmt.Sprintf("https://www.opensubtitles.org/en/search2?MovieName=%s%s", movieName, f.create()))
+}
+
+type filterOpts func(*filter)
+
+func Year(y uint) filterOpts {
+	return func(f *filter) {
+		f.year = y
+	}
+}
+
+func Language(l ...lang.Language) filterOpts {
+	return func(f *filter) {
+		if len(l) > 0 {
+			f.languages = l
+		}
+	}
+}
+
+func Order(o order.By) filterOpts {
+	return func(f *filter) {
+		switch f.order {
+		case order.Uploaded, order.Downloads, order.Rating:
+			f.order = o
+		default:
+			f.order = order.Uploaded
+		}
+	}
+}
+
+func search(url string) (resp response, searchErr error) {
 	c := colly.NewCollector()
 	extensions.RandomUserAgent(c)
 
 	c.OnHTML("div.content", func(e *colly.HTMLElement) {
 		// Checking for subtitle pagination
 		if e.DOM.Find("div#msg").Length() > 0 {
-			sr := model.SubtitleResponse{}
+			sr := Result[Subtitle]{}
 
 			e.ForEach("div#msg", func(_ int, el *colly.HTMLElement) {
 				numbers := regexp.MustCompile(`\d+`).FindAllString(el.Text, -1)
@@ -46,10 +87,10 @@ func Search() (resp model.Response, searchErr error) {
 					return
 				}
 
-				sr.Page = model.Page{From: from, To: to, Total: total}
+				sr.Page = Page{From: from, To: to, Total: total}
 			})
 
-			var subtitles []model.Subtitle
+			var subtitles []Subtitle
 			e.ForEach("table#search_results tr", func(i int, row *colly.HTMLElement) {
 				if i == 0 {
 					return
@@ -57,7 +98,7 @@ func Search() (resp model.Response, searchErr error) {
 
 				nameID := strings.TrimSpace(row.Attr("id"))
 				if !strings.Contains(nameID, "ihtr") {
-					sub := model.Subtitle{}
+					sub := Subtitle{}
 
 					id, err := strconv.Atoi(strings.TrimPrefix(nameID, "name"))
 					if err != nil {
@@ -65,7 +106,7 @@ func Search() (resp model.Response, searchErr error) {
 						return
 					}
 
-					sub.ID = id
+					sub.ID = uint(id)
 					sub.DownloadLink = fmt.Sprintf("https://dl.opensubtitles.org/en/download/sub/%d", id)
 
 					row.ForEach("td", func(i int, el *colly.HTMLElement) {
@@ -73,10 +114,10 @@ func Search() (resp model.Response, searchErr error) {
 						switch i {
 						case 0:
 							names := steams.FromSlice(strings.Split(item, "\n"))
-							sub.Movie = names.First().MapOrDefault(func(s string) string {
+							sub.MovieTitle = names.First().MapOrDefault(func(s string) string {
 								return strings.TrimSpace(s)
 							})
-							sub.Name = names.Nth(1).AndThen(func(s string) nilo.Option[string] {
+							sub.Description = names.Nth(1).AndThen(func(s string) nilo.Option[string] {
 								trimmed := strings.TrimSpace(s)
 								if trimmed == "" {
 									return nilo.Nil[string]()
@@ -111,13 +152,12 @@ func Search() (resp model.Response, searchErr error) {
 
 					subtitles = append(subtitles, sub)
 				}
-
 			})
 
-			sr.Subtitles = subtitles
+			sr.Items = steams.FromSlice(subtitles)
 			resp = sr
 		} else if e.DOM.Find("div.msg none").Length() > 0 {
-			mr := model.MovieResponse{}
+			mr := Result[Movie]{}
 			e.ForEach("table#search_results tr", func(i int, el *colly.HTMLElement) {
 				fmt.Println("subs:", el.Text)
 			})
@@ -129,7 +169,7 @@ func Search() (resp model.Response, searchErr error) {
 		searchErr = e
 	})
 
-	searchErr = c.Visit("https://www.opensubtitles.org/en/search2?MovieName=holdovers&SubLanguageID=spa&id=8&action=search")
+	searchErr = c.Visit(url)
 
 	return
 }
