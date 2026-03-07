@@ -1,6 +1,10 @@
 package osubs
 
 import (
+	"errors"
+	"regexp"
+	"strconv"
+
 	"github.com/javiorfo/nilo"
 	"github.com/javiorfo/steams/v2"
 )
@@ -46,6 +50,28 @@ type Page struct {
 	To int
 	// The Total number of items available.
 	Total int
+}
+
+func newPage(text string) (*Page, error) {
+	numbers := regexp.MustCompile(`\d+`).FindAllString(text, -1)
+	if len(numbers) < 3 {
+		return nil, errors.New("could not set Page values (less than 3)")
+	}
+
+	from, err := strconv.Atoi(numbers[0])
+	if err != nil {
+		return nil, err
+	}
+	to, err := strconv.Atoi(numbers[1])
+	if err != nil {
+		return nil, err
+	}
+	total, err := strconv.Atoi(numbers[2])
+	if err != nil {
+		return nil, err
+	}
+
+	return &Page{From: from, To: to, Total: total}, nil
 }
 
 type response interface {

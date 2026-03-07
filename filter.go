@@ -25,10 +25,17 @@ func (f filter) create() string {
 		year = strconv.Itoa(int(f.year))
 	}
 
+	return fmt.Sprintf("&SubLanguageID=%s&MovieYearSign=1&MovieYear=%s%s", f.languagesToString(), year, f.orderToString())
+}
+
+func (f filter) languagesToString() string {
 	langs := steams.FromSlice(f.languages).
 		MapToString(func(l lang.Language) string { return l.Code() }).
 		Collect()
+	return strings.Join(langs, ",")
+}
 
+func (f filter) orderToString() string {
 	var orderBy string
 	switch f.order {
 	case order.Uploaded:
@@ -38,6 +45,5 @@ func (f filter) create() string {
 	case order.Downloads:
 		orderBy = "/sort-7/asc-0"
 	}
-
-	return fmt.Sprintf("&SubLanguageID=%s&MovieYearSign=1&MovieYear=%s%s", strings.Join(langs, ","), year, orderBy)
+	return orderBy
 }

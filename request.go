@@ -15,19 +15,6 @@ import (
 	"github.com/javiorfo/steams/v2"
 )
 
-func Search(movieName string, filters ...filterOpts) (response, error) {
-	if movieName == "" {
-		return nil, errors.New("movie name must not be empty")
-	}
-
-	f := &filter{}
-	for _, opt := range filters {
-		opt(f)
-	}
-
-	return search(fmt.Sprintf("https://www.opensubtitles.org/en/search2?MovieName=%s%s", movieName, f.create()))
-}
-
 type filterOpts func(*filter)
 
 func Year(y uint) filterOpts {
@@ -55,7 +42,17 @@ func Order(o order.By) filterOpts {
 	}
 }
 
-func search(url string) (resp response, searchErr error) {
+func Search(movieName string, filters ...filterOpts) (resp response, searchErr error) {
+	if movieName == "" {
+		searchErr = errors.New("movie name must not be empty")
+		return
+	}
+
+	f := &filter{}
+	for _, opt := range filters {
+		opt(f)
+	}
+
 	c := colly.NewCollector()
 	extensions.RandomUserAgent(c)
 
@@ -64,31 +61,12 @@ func search(url string) (resp response, searchErr error) {
 		if e.DOM.Find("div#msg").Length() > 0 {
 			sr := Result[Subtitle]{}
 
-			e.ForEach("div#msg", func(_ int, el *colly.HTMLElement) {
-				numbers := regexp.MustCompile(`\d+`).FindAllString(el.Text, -1)
-				if len(numbers) < 3 {
-					searchErr = errors.New("could not set Page values (less than 3)")
-					return
-				}
-
-				from, err := strconv.Atoi(numbers[0])
-				if err != nil {
-					searchErr = err
-					return
-				}
-				to, err := strconv.Atoi(numbers[1])
-				if err != nil {
-					searchErr = err
-					return
-				}
-				total, err := strconv.Atoi(numbers[2])
-				if err != nil {
-					searchErr = err
-					return
-				}
-
-				sr.Page = Page{From: from, To: to, Total: total}
-			})
+			page, err := newPage(e.ChildText("div#msg"))
+			if err != nil {
+				searchErr = err
+				return
+			}
+			sr.Page = *page
 
 			var subtitles []Subtitle
 			e.ForEach("table#search_results tr", func(i int, row *colly.HTMLElement) {
@@ -156,11 +134,42 @@ func search(url string) (resp response, searchErr error) {
 
 			sr.Items = steams.FromSlice(subtitles)
 			resp = sr
-		} else if e.DOM.Find("div.msg none").Length() > 0 {
+		} else if e.DOM.Find("div.msg.none").Length() > 0 {
 			mr := Result[Movie]{}
-			e.ForEach("table#search_results tr", func(i int, el *colly.HTMLElement) {
-				fmt.Println("subs:", el.Text)
+
+			page, err := newPage(e.ChildText("div.msg.none"))
+			if err != nil {
+				searchErr = err
+				return
+			}
+			mr.Page = *page
+
+			var movies []Movie
+
+			languages := f.languagesToString()
+			order := f.orderToString()
+
+			e.ForEach("table#search_results tr", func(i int, row *colly.HTMLElement) {
+				if i == 0 {
+					return
+				}
+
+				movie := Movie{}
+				nameID := strings.TrimSpace(row.Attr("id"))
+				id, err := strconv.Atoi(strings.TrimPrefix(nameID, "name"))
+				if err != nil {
+					searchErr = err
+					return
+				}
+
+				movie.ID = uint(id)
+				movie.SubtitlesLink = fmt.Sprintf("https://www.opensubtitles.org/en/search/sublanguageid-%s/idmovie-%d%s", languages, id, order)
+				movie.Name = formatMovieName(row.Text)
+
+				movies = append(movies, movie)
 			})
+
+			mr.Items = steams.FromSlice(movies)
 			resp = mr
 		}
 	})
@@ -169,7 +178,22 @@ func search(url string) (resp response, searchErr error) {
 		searchErr = e
 	})
 
-	searchErr = c.Visit(url)
+	searchErr = c.Visit(fmt.Sprintf("https://www.opensubtitles.org/en/search2?MovieName=%s%s", movieName, f.create()))
 
 	return
+}
+
+func formatMovieName(raw string) string {
+	normalized := strings.ReplaceAll(raw, "\n", "")
+
+	re := regexp.MustCompile(`^(.+?)\s+(\(\d{4}\)).*$`)
+
+	matches := re.FindStringSubmatch(normalized)
+	if len(matches) > 2 {
+		title := strings.TrimSpace(matches[1])
+		year := matches[2]
+		return fmt.Sprintf("%s %s", title, year)
+	}
+
+	return raw
 }
