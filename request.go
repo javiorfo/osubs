@@ -53,13 +53,17 @@ func Search(movieName string, filters ...filterOpts) (resp response, searchErr e
 		opt(f)
 	}
 
+	return search(fmt.Sprintf("https://www.opensubtitles.org/en/search2?MovieName=%s%s", movieName, f.create()), *f)
+}
+
+func search(url string, f filter) (resp response, searchErr error) {
 	c := colly.NewCollector()
 	extensions.RandomUserAgent(c)
 
 	c.OnHTML("div.content", func(e *colly.HTMLElement) {
 		// Checking for subtitle pagination
 		if e.DOM.Find("div#msg").Length() > 0 {
-			sr := Result[Subtitle]{}
+			sr := newResult[Subtitle](url)
 
 			page, err := newPage(e.ChildText("div#msg"))
 			if err != nil {
@@ -135,7 +139,7 @@ func Search(movieName string, filters ...filterOpts) (resp response, searchErr e
 			sr.Items = steams.FromSlice(subtitles)
 			resp = sr
 		} else if e.DOM.Find("div.msg.none").Length() > 0 {
-			mr := Result[Movie]{}
+			mr := newResult[Movie](url)
 
 			page, err := newPage(e.ChildText("div.msg.none"))
 			if err != nil {
@@ -146,15 +150,12 @@ func Search(movieName string, filters ...filterOpts) (resp response, searchErr e
 
 			var movies []Movie
 
-			languages := f.languagesToString()
-			order := f.orderToString()
-
 			e.ForEach("table#search_results tr", func(i int, row *colly.HTMLElement) {
 				if i == 0 {
 					return
 				}
 
-				movie := Movie{}
+				movie := Movie{f: f}
 				nameID := strings.TrimSpace(row.Attr("id"))
 				id, err := strconv.Atoi(strings.TrimPrefix(nameID, "name"))
 				if err != nil {
@@ -163,7 +164,6 @@ func Search(movieName string, filters ...filterOpts) (resp response, searchErr e
 				}
 
 				movie.ID = uint(id)
-				movie.SubtitlesLink = fmt.Sprintf("https://www.opensubtitles.org/en/search/sublanguageid-%s/idmovie-%d%s", languages, id, order)
 				movie.Name = formatMovieName(row.Text)
 
 				movies = append(movies, movie)
@@ -178,17 +178,19 @@ func Search(movieName string, filters ...filterOpts) (resp response, searchErr e
 		searchErr = e
 	})
 
-	searchErr = c.Visit(fmt.Sprintf("https://www.opensubtitles.org/en/search2?MovieName=%s%s", movieName, f.create()))
+	searchErr = c.Visit(url)
 
 	return
+
 }
 
 func formatMovieName(raw string) string {
 	normalized := strings.ReplaceAll(raw, "\n", "")
 
-	re := regexp.MustCompile(`^(.+?)\s+(\(\d{4}\)).*$`)
+	matches := regexp.
+		MustCompile(`^(.+?)\s+(\(\d{4}\)).*$`).
+		FindStringSubmatch(normalized)
 
-	matches := re.FindStringSubmatch(normalized)
 	if len(matches) > 2 {
 		title := strings.TrimSpace(matches[1])
 		year := matches[2]
