@@ -3,7 +3,6 @@ package osubs
 import (
 	"errors"
 	"fmt"
-	"regexp"
 	"strconv"
 	"strings"
 
@@ -15,14 +14,19 @@ import (
 	"github.com/javiorfo/steams/v2"
 )
 
+// filterOpts defines a function type used to configure a filter.
 type filterOpts func(*filter)
 
+// Year sets the release year criterion for the filter.
+// A value of 0 typically disables the year filter.
 func Year(y uint) filterOpts {
 	return func(f *filter) {
 		f.year = y
 	}
 }
 
+// Language sets one or more languages to filter by.
+// If no languages are provided, the filter remains unchanged.
 func Language(l ...lang.Language) filterOpts {
 	return func(f *filter) {
 		if len(l) > 0 {
@@ -31,9 +35,12 @@ func Language(l ...lang.Language) filterOpts {
 	}
 }
 
+// Order sets the sorting preference for the search results.
+// Valid options include order.Uploaded, order.Downloads, and order.Rating.
+// If an invalid order is detected, it defaults to order.Uploaded.
 func Order(o order.By) filterOpts {
 	return func(f *filter) {
-		switch f.order {
+		switch o {
 		case order.Uploaded, order.Downloads, order.Rating:
 			f.order = o
 		default:
@@ -42,10 +49,14 @@ func Order(o order.By) filterOpts {
 	}
 }
 
-func Search(movieName string, filters ...filterOpts) (resp response, searchErr error) {
+// Search initiates a subtitle or movie search on OpenSubtitles.
+// It takes a movie title and optional filter configurations (Year, Language, Order).
+//
+// If the movieName is empty, it returns an error. It constructs the appropriate
+// search URL and invokes the internal scraping engine.
+func Search(movieName string, filters ...filterOpts) (response, error) {
 	if movieName == "" {
-		searchErr = errors.New("movie name must not be empty")
-		return
+		return nil, errors.New("movie name must not be empty")
 	}
 
 	f := &filter{}
@@ -56,10 +67,17 @@ func Search(movieName string, filters ...filterOpts) (resp response, searchErr e
 	return search(fmt.Sprintf("https://www.opensubtitles.org/en/search2?MovieName=%s%s", movieName, f.create()), *f)
 }
 
+// search is the internal scraper that parses the OpenSubtitles HTML response.
+// It uses the Colly framework to navigate the DOM and can return either
+// a Result[Subtitle] or a Result[Movie] depending on whether the search
+// led directly to a list of subtitles or a list of possible movie matches.
 func search(url string, f filter) (resp response, searchErr error) {
 	c := colly.NewCollector()
 	extensions.RandomUserAgent(c)
 
+	// The logic inside this callback handles two distinct page layouts:
+	// 1. A table of Subtitles (found when the search is specific).
+	// 2. A table of Movies (found when the search is ambiguous).
 	c.OnHTML("div.content", func(e *colly.HTMLElement) {
 		// Checking for subtitle pagination
 		if e.DOM.Find("div#msg").Length() > 0 {
@@ -84,7 +102,7 @@ func search(url string, f filter) (resp response, searchErr error) {
 
 					id, err := strconv.Atoi(strings.TrimPrefix(nameID, "name"))
 					if err != nil {
-						searchErr = err
+						searchErr = fmt.Errorf("converting id movie to number: %w", err)
 						return
 					}
 
@@ -95,21 +113,23 @@ func search(url string, f filter) (resp response, searchErr error) {
 						item := strings.TrimSpace(el.Text)
 						switch i {
 						case 0:
-							names := steams.FromSlice(strings.Split(item, "\n"))
-							sub.MovieTitle = names.First().MapOrDefault(func(s string) string {
-								return strings.TrimSpace(s)
-							})
-							sub.Description = names.Nth(1).AndThen(func(s string) nilo.Option[string] {
-								trimmed := strings.TrimSpace(s)
-								if trimmed == "" {
-									return nilo.Nil[string]()
-								}
-								cleanStr, _, _ := strings.Cut(trimmed, "Watch")
-								if _, after, ok := strings.Cut(cleanStr, ")"); ok {
-									cleanStr = strings.TrimSpace(after)
-								}
-								return nilo.Value(cleanStr)
-							})
+							sub.MovieTitle = formatMovieName(el.ChildText("[id] strong"))
+							sub.Description = steams.FromSlice(strings.Split(item, "\n")).
+								Nth(1).
+								AndThen(func(s string) nilo.Option[string] {
+									cleanStr, _, _ := strings.Cut(s, "Watch")
+									if _, after, ok := strings.Cut(cleanStr, ")"); ok {
+										cleanStr = strings.TrimSpace(after)
+									}
+
+									trimmed := strings.TrimSpace(cleanStr)
+									if trimmed == "" {
+										return nilo.Nil[string]()
+									}
+									return nilo.Value(trimmed)
+								})
+						case 1:
+							sub.Language = el.ChildAttr("a", "title")
 						case 2:
 							sub.Cd = item
 						case 3:
@@ -136,7 +156,7 @@ func search(url string, f filter) (resp response, searchErr error) {
 				}
 			})
 
-			sr.Items = steams.FromSlice(subtitles)
+			sr.Items = subtitles
 			resp = sr
 		} else if e.DOM.Find("div.msg.none").Length() > 0 {
 			mr := newResult[Movie](url)
@@ -159,23 +179,23 @@ func search(url string, f filter) (resp response, searchErr error) {
 				nameID := strings.TrimSpace(row.Attr("id"))
 				id, err := strconv.Atoi(strings.TrimPrefix(nameID, "name"))
 				if err != nil {
-					searchErr = err
+					searchErr = fmt.Errorf("converting id movie to number: %w", err)
 					return
 				}
 
 				movie.ID = uint(id)
-				movie.Name = formatMovieName(row.Text)
+				movie.Name = formatMovieName(row.ChildText("td[id] strong"))
 
 				movies = append(movies, movie)
 			})
 
-			mr.Items = steams.FromSlice(movies)
+			mr.Items = movies
 			resp = mr
 		}
 	})
 
 	c.OnError(func(r *colly.Response, e error) {
-		searchErr = e
+		searchErr = fmt.Errorf("on request: %w, response: %v", e, r)
 	})
 
 	searchErr = c.Visit(url)
@@ -184,18 +204,12 @@ func search(url string, f filter) (resp response, searchErr error) {
 
 }
 
+// formatMovieName cleans up the raw title string extracted from the HTML.
+// It merges multi-line title strings (e.g., Title + Year) into a single line.
 func formatMovieName(raw string) string {
-	normalized := strings.ReplaceAll(raw, "\n", "")
-
-	matches := regexp.
-		MustCompile(`^(.+?)\s+(\(\d{4}\)).*$`).
-		FindStringSubmatch(normalized)
-
-	if len(matches) > 2 {
-		title := strings.TrimSpace(matches[1])
-		year := matches[2]
-		return fmt.Sprintf("%s %s", title, year)
+	movieName := strings.Split(strings.TrimSpace(raw), "\n")
+	if len(movieName) > 1 {
+		return fmt.Sprintf("%s %s", movieName[0], strings.TrimSpace(movieName[1]))
 	}
-
-	return raw
+	return ""
 }

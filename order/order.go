@@ -1,5 +1,6 @@
 package order
 
+// By represents a order using an enumeration.
 type By uint
 
 const (

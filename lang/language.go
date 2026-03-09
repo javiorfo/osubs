@@ -2,14 +2,22 @@ package lang
 
 import "fmt"
 
+// Language represents a language.
+// It embeds fmt.Stringer.
 type Language interface {
 	fmt.Stringer
+	// Code returns the ISO 639-1 alpha-2 or alpha-3 language code.
 	Code() string
+	// isLanguage is an unexported method used to ensure that only
+	// types within this package can satisfy the Language interface.
 	isLanguage()
 }
 
+// Lang represents a specific language identifier using an enumeration.
+// Implements Language interface
 type Lang uint
 
+// Supported languages.
 const (
 	Abkhazian Lang = iota
 	Afrikaans

@@ -18,9 +18,10 @@ func TestSearchSubtitleRedirect(t *testing.T) {
 
 	switch v := resp.(type) {
 	case Result[Subtitle]:
-		for sub := range v.Items {
+		for _, sub := range v.Items {
 			t.Log(sub)
 		}
+		v.Items[0].Download("/tmp")
 	default:
 		t.Fatalf("must be Result[Subtitle] %v", v)
 	}
@@ -39,7 +40,11 @@ func TestSearchMovie(t *testing.T) {
 	switch v := resp.(type) {
 	case Result[Movie]:
 		t.Log(v.Page)
-		for movie := range v.Items {
+		for i, movie := range v.Items {
+			if i == 0 {
+				subs, _ := movie.SearchSubtitles()
+				t.Log(subs)
+			}
 			t.Log(movie)
 		}
 		/* 		t.Log(v.Next())
@@ -49,11 +54,6 @@ func TestSearchMovie(t *testing.T) {
 		   		t.Log(v.Page)
 		   		t.Log(v.Items.Collect()) */
 
-		for i := range v.Iter() {
-			t.Log(i.Page)
-			t.Log(i.Items.Collect())
-
-		}
 	default:
 		t.Fatalf("must be Result[Movie] %v", v)
 	}
