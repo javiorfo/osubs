@@ -34,6 +34,10 @@ func (f filter) create() string {
 // languagesToString converts the slice of Language interfaces into a
 // comma-separated string of language codes (e.g., "en,fr,es").
 func (f filter) languagesToString() string {
+	if len(f.languages) == 0 {
+		return "all"
+	}
+
 	langs := steams.FromSlice(f.languages).
 		MapToString(func(l lang.Language) string { return l.Code() }).
 		Collect()

@@ -119,6 +119,7 @@ func (m Movie) SearchSubtitles() (Result[Subtitle], error) {
 		m.ID,
 		m.f.orderToString(),
 	)
+	fmt.Println(subtitlesLink)
 
 	resp, err := search(subtitlesLink, m.f)
 	return resp.(Result[Subtitle]), err
@@ -162,8 +163,8 @@ func newPage(text string) (*Page, error) {
 	return &Page{From: from, To: to, Total: total}, nil
 }
 
-// response is a sealed interface used to categorize internal search results.
-type response interface {
+// Response is a sealed interface used to categorize internal search results.
+type Response interface {
 	isResponse()
 }
 
@@ -172,8 +173,8 @@ type response interface {
 type Result[T any] struct {
 	// Page contains metadata about the current position and total results.
 	Page Page
-	// Items is the slice of data retrieved for the current page.
-	Items []T
+	// Items is stream iterator of data retrieved for the current page.
+	Items steams.It[T]
 	// url is the base endpoint used for pagination.
 	url string
 	// f is the filter configuration applied to the search.

@@ -54,7 +54,7 @@ func Order(o order.By) filterOpts {
 //
 // If the movieName is empty, it returns an error. It constructs the appropriate
 // search URL and invokes the internal scraping engine.
-func Search(movieName string, filters ...filterOpts) (response, error) {
+func Search(movieName string, filters ...filterOpts) (Response, error) {
 	if movieName == "" {
 		return nil, errors.New("movie name must not be empty")
 	}
@@ -64,14 +64,14 @@ func Search(movieName string, filters ...filterOpts) (response, error) {
 		opt(f)
 	}
 
-	return search(fmt.Sprintf("https://www.opensubtitles.org/en/search2?MovieName=%s%s", movieName, f.create()), *f)
+	return search(fmt.Sprintf("https://www.opensubtitles.org/en/search2?MovieName=%s/searchonlymovies-on%s", movieName, f.create()), *f)
 }
 
 // search is the internal scraper that parses the OpenSubtitles HTML response.
 // It uses the Colly framework to navigate the DOM and can return either
 // a Result[Subtitle] or a Result[Movie] depending on whether the search
 // led directly to a list of subtitles or a list of possible movie matches.
-func search(url string, f filter) (resp response, searchErr error) {
+func search(url string, f filter) (resp Response, searchErr error) {
 	c := colly.NewCollector()
 	extensions.RandomUserAgent(c)
 
@@ -156,7 +156,7 @@ func search(url string, f filter) (resp response, searchErr error) {
 				}
 			})
 
-			sr.Items = subtitles
+			sr.Items = steams.FromSlice(subtitles)
 			resp = sr
 		} else if e.DOM.Find("div.msg.none").Length() > 0 {
 			mr := newResult[Movie](url)
@@ -189,7 +189,7 @@ func search(url string, f filter) (resp response, searchErr error) {
 				movies = append(movies, movie)
 			})
 
-			mr.Items = movies
+			mr.Items = steams.FromSlice(movies)
 			resp = mr
 		}
 	})
